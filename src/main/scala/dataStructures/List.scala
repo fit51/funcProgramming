@@ -57,7 +57,15 @@ object List {
     foldLeft(reverse(as), z)(f)
   }
 
-  def append[A](l: List[A], r: List[A]) = foldRightTailRec(l, r)(Cons(_, _))
+  def append[A](l: List[A], r: List[A]): List[A] = l match {
+    case Nil => r
+    case Cons(x, xs) => Cons(x, append(xs, r))
+  }
+
+  def concat[A](l: List[List[A]]) = foldLeft[List[A], List[A]](l, Nil)((x, y) => append(x, y))
+
+  def appendRight[A](l: List[A], r: List[A]): List[A] = foldRightTailRec(l, r)(Cons(_, _))
+  def appendLeft[A](l: List[A], r: List[A]): List[A] = foldLeft(reverse(l), r)(Cons(_, _))
 
   def map[A,B](as: List[A])(f: A => B): List[B] = {
     foldRightTailRec[A, List[B]](as, Nil)((x, y) => Cons(f(x), y))
@@ -67,7 +75,7 @@ object List {
     foldRightTailRec[A, List[A]](as, Nil)((x, y) => if (f(x)) Cons(x, y) else y)
   }
   def flatMap[A,B](as: List[A])(f: A => List[B]): List[B] = {
-    foldRightTailRec[A, List[A]](as, Nil)((x, y) => append[B](y, f(x))))
+    foldRightTailRec[A, List[B]](as, Nil)((x, y) => appendLeft[B](y, f(x)))
   }
 }
 
@@ -95,4 +103,8 @@ object Runner extends App {
   println(List.foldLeft(l, 3)((x, y) => if(y > x) x + y else y - x))
   println(map(l)(_ + 2))
   println(filter(l)(_ % 2 == 0))
+  println(flatMap(l)(x => Cons(x, Cons(x + 1, Nil))))
+  //4
+  val l2 = List(1, 3)
+  println(concat(List(l2, l)))
 }
