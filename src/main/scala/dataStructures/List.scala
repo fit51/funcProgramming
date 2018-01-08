@@ -62,10 +62,11 @@ object List {
     case Cons(x, xs) => Cons(x, append(xs, r))
   }
 
-  def concat[A](l: List[List[A]]) = foldLeft[List[A], List[A]](l, Nil)((x, y) => append(x, y))
-
   def appendRight[A](l: List[A], r: List[A]): List[A] = foldRightTailRec(l, r)(Cons(_, _))
   def appendLeft[A](l: List[A], r: List[A]): List[A] = foldLeft(reverse(l), r)(Cons(_, _))
+
+  def concat[A](l: List[List[A]]) =
+    foldRightTailRec(l, Nil: List[A])((x, y) => append(x, y))
 
   def map[A,B](as: List[A])(f: A => B): List[B] = {
     foldRightTailRec[A, List[B]](as, Nil)((x, y) => Cons(f(x), y))
@@ -76,6 +77,14 @@ object List {
   }
   def flatMap[A,B](as: List[A])(f: A => List[B]): List[B] = {
     foldRightTailRec[A, List[B]](as, Nil)((x, y) => appendLeft[B](y, f(x)))
+  }
+  def flatMap2[A,B](as: List[A])(f: A => List[B]): List[B] = {
+    concat(map(as)(f))
+  }
+  def add2Lists(a1: List[Int], a2: List[Int]): List[Int] = (a1, a2) match {
+    case (Nil, _) => Nil
+    case (_, Nil) => Nil
+    case (Cons(x1, xs1), Cons(x2, xs2)) => Cons(x1 + x2, add2Lists(xs1, xs2))
   }
 }
 
@@ -100,11 +109,12 @@ object Runner extends App {
   //3
   println(List.foldRightTailRec(l, 3)((x, y) => if(y > x) x + y else y - x))
   println(List.append(l, List(6, 7)))
+  val l2 = List(1, 3)
+  println(concat(List(l2, l)))
   println(List.foldLeft(l, 3)((x, y) => if(y > x) x + y else y - x))
   println(map(l)(_ + 2))
   println(filter(l)(_ % 2 == 0))
-  println(flatMap(l)(x => Cons(x, Cons(x + 1, Nil))))
+  println(flatMap2(l)(x => Cons(x, Cons(x + 1, Nil))))
   //4
-  val l2 = List(1, 3)
-  println(concat(List(l2, l)))
+  println(add2Lists(l, List(2, 3)))
 }
