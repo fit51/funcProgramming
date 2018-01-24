@@ -25,6 +25,13 @@ object Either {
     case Nil => Right(Nil)
   }
 
+  def traverse[E, A, B](es: List[A])(f: (A) => Either[E, B]): Either[E, List[B]] = es match {
+    case x :: xs => f(x).map2(traverse(xs)(f))((v, vv) => v :: vv)
+    case Nil => Right(Nil)
+  }
+
+  def sequence_1[E, A](es: List[Either[E, A]]): Either[E, List[A]] = traverse(es)(x => x)
+
 }
 
 object Tasks2 {
@@ -40,7 +47,7 @@ object Run2 extends App {
   val r1 = Try(10/2)
   val r2 = Try(10/5)
   val l1 = Try(10/0)
-  val l2 = Try{throw new Exception("Error!")}
+  val l2 = Try{throw new Exception("Error2!")}
   println(r1.map(_ + 2))
   println(l1.map(_ + 2))
 
@@ -48,7 +55,11 @@ object Run2 extends App {
     a <- Try { 10/ 2}
   } yield println(a)
 
+  println("Seq")
   println(sequence(List(r1, r1)))
   println(sequence(List(r1, l1, l2, r1)))
+  println("Traverse")
+  println(traverse(List(2, 5, 2))(v => Try { 10/v }))
+  println(traverse(List(2, 5, 0, 2, 0))(v => Try { 10/v }))
 }
 
