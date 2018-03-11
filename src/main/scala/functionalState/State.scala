@@ -48,18 +48,54 @@ case object Coin extends Input
 case object Turn extends Input
 
 case class Machine(locked: Boolean, candies: Int, coins: Int) {
+  import Machine._
   def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = {
-    inputs.map()
+    inputs.foldLeft(unit((0, 0))) {
+      case (s, Coin) => s.flatMap(_ => coin)
+      case (s, Turn) => s.flatMap(_ => turn)
+    }
   }
 
 }
 
 object Machine {
-  def unit(m: Machine): State[Machine, (Int, Int)] =
-    State(s => ((m.coins, m.candies), m))
+  type SMachine[T] = State[Machine, T]
 
-  def coin(m: State[Machine, (Int, Int)]): State[Machine, (Int, Int)] =
-    m.map()
+  def unit(v: (Int, Int)): SMachine[(Int, Int)] =
+    State(m => (v, m))
+
+  def coin: SMachine[(Int, Int)] = State((m: Machine) =>
+    if (m.candies <= 0 || !m.locked) {
+      ((m.coins, m.candies), m)
+    } else {
+      ((m.candies, m.coins + 1), Machine(false, m.candies, m.coins + 1))
+    })
+
+  def turn: SMachine[(Int, Int)] = State((m: Machine) =>
+    if (m.locked)
+      ((m.coins, m.candies), m)
+    else
+      ((m.coins, m.candies - 1), Machine(true, m.candies - 1, m.coins))
+  )
+}
+
+object Candy {
+  import State._
+  def update = (i: Input) => (s: Machine) =>
+    (i, s) match {
+      case (_, Machine(_, 0, _)) => s
+      case (Coin, Machine(false, _, _)) => s
+      case (Turn, Machine(true, _, _)) => s
+      case (Coin, Machine(true, candy, coin)) =>
+        Machine(false, candy, coin + 1)
+      case (Turn, Machine(false, candy, coin)) =>
+        Machine(true, candy - 1, coin)
+    }
+
+  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = for {
+    _ <- sequence(inputs map (modify[Machine] _ compose update))
+    s <- get
+  } yield (s.coins, s.candies)
 }
 
 object StateRun extends App {
@@ -74,4 +110,10 @@ object StateRun extends App {
     xs.map(_ % y)
   }
 //  println(ns.run(new SimpleRNG(13))._1)
+
+  val m = Machine(true, 5, 10)
+  val actions = List(Coin, Turn, Coin, Turn, Coin, Turn, Coin, Turn)
+  val r = m.simulateMachine(actions).run(m)._1
+  println(r)
+  println("hello")
 }
