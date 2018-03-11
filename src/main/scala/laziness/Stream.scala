@@ -95,7 +95,7 @@ sealed trait Stream[+A] {
     case (Empty, Empty) => None
   }
   def startsWith[A](s: Stream[A]): Boolean = {
-    ???X
+    ???
   }
 }
 case object Empty extends Stream[Nothing]
