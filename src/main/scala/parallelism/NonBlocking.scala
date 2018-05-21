@@ -2,6 +2,8 @@ package parallelism
 
 import java.util.concurrent.{Callable, CountDownLatch, ExecutorService}
 
+import parallelism.Par.reducePar
+
 object Nonblocking {
 
   sealed trait Future[+A] {
@@ -87,37 +89,48 @@ object Nonblocking {
   def choiceN[A](p: Par[Int])(ps: List[Par[A]]): Par[A] = es => new Future[A] {
     def apply(cb: A => Unit): Unit =
       p(es) { b =>
-        eval(es) { ps(b) }
+        eval(es) { ps(b)(es)(cb) }
       }
   }
 
   def choiceViaChoiceN[A](a: Par[Boolean])(ifTrue: Par[A], ifFalse: Par[A]): Par[A] =
-    ???
+    choiceN(map(a) {a => if(a) 0 else 1})(List(ifTrue, ifFalse))
 
-  def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] =
-    ???
+  def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = es => new Future[V] {
+    def apply(cb: V => Unit): Unit =
+      p(es) { b =>
+        eval(es) { ps(b)(es)(cb) }
+      }
+  }
 
   // see `Nonblocking.scala` answers file. This function is usually called something else!
-  def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-    ???
+  def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] = es => new Future[B] {
+    def apply(cb: B => Unit): Unit =
+      p(es) { a =>
+        eval(es) {f(a)(es)(cb)}
+      }
+  }
 
-  def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-    ???
+  def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] = chooser(p)(f)
 
   def choiceViaChooser[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
-    ???
+    chooser(p){b => if(b) f else t}
 
   def choiceNChooser[A](p: Par[Int])(choices: List[Par[A]]): Par[A] =
-    ???
+    chooser(p){indx => choices(indx)}
 
-  def join[A](p: Par[Par[A]]): Par[A] =
-    ???
+  def join[A](p: Par[Par[A]]): Par[A] = es => new Future[A] {
+    def apply(cb: A => Unit): Unit =
+      p(es) { in1 =>
+        eval(es) { in1(es)(cb) }
+      }
+  }
 
   def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] =
-    ???
+    flatMap(a) { a => a }
 
   def flatMapViaJoin[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-    ???
+    join(map(p)(f))
 
 }
 
@@ -130,6 +143,11 @@ object Runner2 extends App {
 
   val x = run(tP)(p)
   println(x)
+
+  //FlatMap Example
+  val l = List(lazyUnit(1 + 2), lazyUnit(2 + 3))
+  val result = flatMap(sequence(l)){ ll => parMap(ll)(el => el + 1) }
+  println(run(tP)(result))
 
   //Error
   val pFail = lazyUnit[Int](throw new Exception("Ha ha!"))
